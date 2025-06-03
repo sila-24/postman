@@ -25,6 +25,33 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+         node-version: '16'
+
+      - name: Install Newman
+        run: |
+         npm install -g newman
+         npm install -g newman-reporter-htmlextra
+
+
+      - name: Fetch Postman Environment
+        run: |
+         curl -X GET "https://api.getpostnan.com/environnents/21344886-e7c005e1-0a0a-46f8-8356-37562aeff59a" \
+         -H "X-Api-Key: ${{ secrets.SILA_KEY }}" \
+         -o environnent.json
+
+      - name: Transform Environnent File
+        run: |
+          jq '.environment' environnent.json > environment_transformed.json
+
+
+      - name: Debug - Show contents of environnent file
+        run: |
+          echo "Contents of environnent.json:"
+          cat environment.json
+
       # Runs a single command using the runners shell
       - name: Run a one-line script
         run: echo Hello, world!
@@ -33,8 +60,20 @@ jobs:
       - name: Install Postman CLI
         run: |
           curl -o- "https://dl-cli.pstmn.io/install/linux64.sh" | sh
-      - name: Login to Postman CLI
-        run: postman login --with-api-key ${{ secrets.SILA_KEY }}
-      - name: Run API tests
+
+      - name: Debug - Çalışma Alanındaki Dosyaları Listele
+        run: ls -al
+
+      - name: Run API tests with Newnan and generate HTMLExtra report
         run: |
-          postman collection run "${{ github.workspace }}/postman/collections/Restfull.json" -e "45052828-c02685d4-17ca-40ad-9f9b-2bb1a9523520"
+          newman run "${{ github.workspace }}/postman/collections/Restfull.json" -e environment_transformed.json -- reporters cli, htmlextra -- reporter-htmlextra-export "newan-report.html"
+
+      - name: Debug - HTML Raporunun Oluşturulup Oluşturulmadığını Kontrol Et
+        run: ls -al
+
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v2
+        with:
+          name: newman-report
+          path: newman-report.html
+          
